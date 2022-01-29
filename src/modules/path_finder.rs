@@ -56,7 +56,7 @@ impl PathFinder {
         self.heap.push(start_position, Reverse(starting_distance));
         self.distance.insert(start_position, starting_distance);
 
-        while let Some((current_position, current_distance)) = self.heap.pop() {
+        while let Some((current_position, _)) = self.heap.pop() {
             if current_position == goal.get_position() {
                 return self.path_builder.build(current_position);
             }
@@ -77,31 +77,31 @@ impl PathFinder {
                     }
                 };
 
-                // always runs, workaround to extract current_cost from Reverse wrapper
-                if let Reverse(cost) = current_distance {
-                    let tentative_distance = cost + distance_to_next_node;
 
-                    let next_node = (next_row, next_col);
-                    let node_prev_distance = {
-                        // if we haven't tracked this node's distance, it this is the firs time we see it. Thus, its distance is defined as infinite
-                        if !self.distance.contains_key(&next_node) {
-                            OrderedFloat::new(f64::MAX).unwrap()
-                        } else {
-                            self.distance[&next_node]
+                let tentative_distance = self.distance[&current_position] + distance_to_next_node;
+                let next_position = (next_row, next_col);
+                let new_priority = tentative_distance
+                    + self.calculate_heuristic(next_position, goal.get_position());
+
+                match self.heap.entry(next_position) {
+                    keyed_priority_queue::Entry::Occupied(entry) => {
+
+                        let prev_distance = self.distance[&next_position];
+
+                        if tentative_distance < prev_distance {
+                            self.path_builder.node_origins.insert(next_position, current_position);
+                            entry.set_priority(Reverse(new_priority));
+                            self.distance.insert(next_position, tentative_distance);
                         }
-                    };
 
-                    // attempt relaxation
-                    let new_priority = tentative_distance
-                        + self.calculate_heuristic(next_node, goal.get_position());
-
-                    if tentative_distance < node_prev_distance {
-                        self.distance.insert(next_node, tentative_distance);
-                        self.heap
-                            .set_priority(&next_node, Reverse(new_priority))
-                            .expect("Exception: could not update priority.");
+                    }
+                    keyed_priority_queue::Entry::Vacant(entry) => {
+                        self.path_builder.node_origins.insert(next_position, current_position);
+                        entry.set_priority(Reverse(new_priority));
+                        self.distance.insert(next_position, tentative_distance);
                     }
                 }
+
             }
         }
 
@@ -324,5 +324,57 @@ mod test {
 
         path_finder.push_if_open(open, &mut list);
         assert_eq!(list, vec![open]);
+    }
+
+    #[test]
+    fn it_computes_path() {
+        let mut path_finder = PathFinder::new(
+            Board::new(
+                3,
+                3,
+                vec![
+                    Position::Open(Node::new((0, 0), 1)),
+                    Position::Open(Node::new((0, 1), 1)),
+                    Position::Open(Node::new((0, 2), 1)),
+                    Position::Open(Node::new((1, 0), 1)),
+                    Position::Walled,
+                    Position::Open(Node::new((1, 2), 1)),
+                    Position::Open(Node::new((2, 0), 1)),
+                    Position::Open(Node::new((2, 1), 1)),
+                    Position::Open(Node::new((2, 2), 1)),
+                ],
+            ),
+            PathBuilder::new(),
+        );
+
+        let result = path_finder.find_shortest_path(&Node::new((0,0), 1), &Node::new((2,1), 1));
+        assert_eq!(result, Some(vec![(0,0), (1,0), (2,1)]));
+    }
+
+    #[test]
+    fn it_handles_non_existing_paths() {
+        let mut path_finder = PathFinder::new(
+            Board::new(
+                3,
+                3,
+                vec![
+                    Position::Open(Node::new((0, 0), 1)),
+                    Position::Walled,
+                    Position::Open(Node::new((0, 2), 1)),
+
+                    Position::Open(Node::new((1, 0), 1)),
+                    Position::Walled,
+                    Position::Open(Node::new((1, 2), 1)),
+
+                    Position::Open(Node::new((2, 0), 1)),
+                    Position::Walled,
+                    Position::Open(Node::new((2, 2), 1)),
+                ],
+            ),
+            PathBuilder::new(),
+        );
+
+        let result = path_finder.find_shortest_path(&Node::new((0,0), 1), &Node::new((2,1), 1));
+        assert_eq!(result, None);
     }
 }
