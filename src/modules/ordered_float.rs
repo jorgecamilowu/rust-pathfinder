@@ -4,6 +4,9 @@ use std::ops::Add;
 #[derive(PartialEq, PartialOrd, Debug, Clone, Copy)]
 pub struct OrderedFloat(f64);
 
+/**
+ * DS to represent order in floats. Excludes NaNs
+ */
 impl OrderedFloat {
     pub fn new(val: f64) -> Option<OrderedFloat> {
         if val.is_nan() {

@@ -42,6 +42,9 @@ mod tests {
         builder.node_origins.insert((3, 3), (2, 2));
         builder.node_origins.insert((2, 2), (1, 1));
 
-        assert_eq!(Some(vec![(1, 1), (2, 2), (3, 3), (4,4)]), builder.build((4, 4)));
+        assert_eq!(
+            Some(vec![(1, 1), (2, 2), (3, 3), (4, 4)]),
+            builder.build((4, 4))
+        );
     }
 }

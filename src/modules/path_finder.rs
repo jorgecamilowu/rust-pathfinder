@@ -17,10 +17,14 @@ use std::collections::{HashMap, HashSet};
 //     (-1, -1), (-1, 1), (1, -1), (1, 1)
 // ];
 
+
+/**
+ * Path finder using the A * Search algorithm.
+ */
 pub struct PathFinder {
     path_builder: PathBuilder,
     heap: KeyedPriorityQueue<Coordinate, Reverse<OrderedFloat>>,
-    distance: HashMap<Coordinate, OrderedFloat>,
+    g_score: HashMap<Coordinate, OrderedFloat>,
     seen: HashSet<Coordinate>,
     board: Board,
 }
@@ -31,22 +35,33 @@ impl PathFinder {
     pub fn new(board: Board, path_builder: PathBuilder) -> PathFinder {
         PathFinder {
             board,
+
             path_builder,
-            // set to min-heap
+
+            /**
+             * Keyed by the f_score of a position.
+             * for position x, f_score[x] := g_score[x] + heuristic(x).
+             * f_score[x] represents our current best guess as to how short a path
+             * from start to finish can be if it goes through n.
+             */
             heap: KeyedPriorityQueue::<Coordinate, Reverse<OrderedFloat>>::new(),
-            distance: HashMap::new(),
+
+            // for a position x,  g_score[x] is the current shortest path from start to x
+            g_score: HashMap::new(),
+
+            // optimization, skip already expanded positions
             seen: HashSet::new(),
         }
     }
 
-    // TODO refactor with strategy pattern
     pub fn find_shortest_path(&mut self, start: &Node, goal: &Node) -> Option<Vec<Coordinate>> {
-        // skip if starting position is walled
         let start_position = start.get_position();
 
+        // skip if starting position is walled
         if let Position::Walled = self.board[start_position] {
             return None;
         }
+
         if start == goal {
             return Some(vec![start_position]);
         }
@@ -54,17 +69,20 @@ impl PathFinder {
         // bootstrapping
         let starting_distance = OrderedFloat::new(0.0).unwrap();
         self.heap.push(start_position, Reverse(starting_distance));
-        self.distance.insert(start_position, starting_distance);
+        self.g_score.insert(start_position, starting_distance);
 
         while let Some((current_position, _)) = self.heap.pop() {
+            // found goal
             if current_position == goal.get_position() {
                 return self.path_builder.build(current_position);
             }
 
+            // record already explored positions
             self.seen.insert(current_position);
 
             // explore neighbors
             for (next_row, next_col, is_diagonal) in self.get_neighbors(current_position) {
+                // skip already explored positions
                 if self.seen.contains(&(next_row, next_col)) {
                     continue;
                 }
@@ -77,31 +95,44 @@ impl PathFinder {
                     }
                 };
 
-
-                let tentative_distance = self.distance[&current_position] + distance_to_next_node;
+                let tentative_gscore = self.g_score[&current_position] + distance_to_next_node;
                 let next_position = (next_row, next_col);
-                let new_priority = tentative_distance
-                    + self.calculate_heuristic(next_position, goal.get_position());
+                let new_fscore =
+                    tentative_gscore + self.calculate_heuristic(next_position, goal.get_position());
 
                 match self.heap.entry(next_position) {
-                    keyed_priority_queue::Entry::Occupied(entry) => {
+                    // path relaxation attempt:
+                    // case where we had a previous record of a position's shortest path. Re-evaluate if current path is shorter
+                    keyed_priority_queue::Entry::Occupied(entry)
+                        if tentative_gscore < self.g_score[&next_position] =>
+                    {
+                        // mark the position's origin
+                        self.path_builder
+                            .node_origins
+                            .insert(next_position, current_position);
 
-                        let prev_distance = self.distance[&next_position];
+                        // update f_score
+                        entry.set_priority(Reverse(new_fscore));
 
-                        if tentative_distance < prev_distance {
-                            self.path_builder.node_origins.insert(next_position, current_position);
-                            entry.set_priority(Reverse(new_priority));
-                            self.distance.insert(next_position, tentative_distance);
-                        }
-
+                        // update g_score
+                        self.g_score.insert(next_position, tentative_gscore);
                     }
+
+                    // case where it is the first time we expand this position. Record it.
                     keyed_priority_queue::Entry::Vacant(entry) => {
-                        self.path_builder.node_origins.insert(next_position, current_position);
-                        entry.set_priority(Reverse(new_priority));
-                        self.distance.insert(next_position, tentative_distance);
-                    }
-                }
+                        // mark the position's origin
+                        self.path_builder
+                            .node_origins
+                            .insert(next_position, current_position);
 
+                        // update f_score
+                        entry.set_priority(Reverse(new_fscore));
+
+                        // update g_score
+                        self.g_score.insert(next_position, tentative_gscore);
+                    }
+                    _ => {}
+                }
             }
         }
 
@@ -130,7 +161,7 @@ impl PathFinder {
 
     fn cleanup(&mut self) {
         self.heap = KeyedPriorityQueue::<Coordinate, Reverse<OrderedFloat>>::new();
-        self.distance = HashMap::new();
+        self.g_score = HashMap::new();
         self.seen = HashSet::new();
         self.path_builder = PathBuilder::new();
     }
@@ -198,8 +229,6 @@ impl PathFinder {
 
 #[cfg(test)]
 mod test {
-    use std::path;
-
     use super::*;
 
     fn build_path_finder() -> PathFinder {
@@ -347,8 +376,8 @@ mod test {
             PathBuilder::new(),
         );
 
-        let result = path_finder.find_shortest_path(&Node::new((0,0), 1), &Node::new((2,1), 1));
-        assert_eq!(result, Some(vec![(0,0), (1,0), (2,1)]));
+        let result = path_finder.find_shortest_path(&Node::new((0, 0), 1), &Node::new((2, 1), 1));
+        assert_eq!(result, Some(vec![(0, 0), (1, 0), (2, 1)]));
     }
 
     #[test]
@@ -361,11 +390,9 @@ mod test {
                     Position::Open(Node::new((0, 0), 1)),
                     Position::Walled,
                     Position::Open(Node::new((0, 2), 1)),
-
                     Position::Open(Node::new((1, 0), 1)),
                     Position::Walled,
                     Position::Open(Node::new((1, 2), 1)),
-
                     Position::Open(Node::new((2, 0), 1)),
                     Position::Walled,
                     Position::Open(Node::new((2, 2), 1)),
@@ -374,7 +401,7 @@ mod test {
             PathBuilder::new(),
         );
 
-        let result = path_finder.find_shortest_path(&Node::new((0,0), 1), &Node::new((2,1), 1));
+        let result = path_finder.find_shortest_path(&Node::new((0, 0), 1), &Node::new((2, 1), 1));
         assert_eq!(result, None);
     }
 }
