@@ -1,4 +1,4 @@
-mod modules;
+pub mod modules;
 
 fn main() {
     println!("Hello, world!");

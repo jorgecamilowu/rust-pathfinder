@@ -1,9 +1,13 @@
-use super::node::{Coordinate, Node};
+use super::{
+    node::{Coordinate, Node},
+    ordered_float::OrderedFloat,
+};
 use std::ops::Index;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Position {
     Open(Node),
+    Weighted(Node, OrderedFloat),
     Walled,
 }
 
@@ -50,7 +54,7 @@ mod test {
         Board {
             rows: 2,
             columns: 2,
-            plane: Box::new(vec![Position::Walled, Position::Open(Node::new((1, 1), 1))]),
+            plane: Box::new(vec![Position::Walled, Position::Open(Node::new((1, 1)))]),
         }
     }
 
@@ -63,10 +67,10 @@ mod test {
 
     #[test]
     fn returns_plane() {
-        let plane: Vec<Position> = vec![Position::Walled, Position::Open(Node::new((1, 1), 1))];
+        let plane: Vec<Position> = vec![Position::Walled, Position::Open(Node::new((1, 1)))];
 
         let board = get_board();
 
-        assert_eq!(board.get_plane(), &plane);
+        assert_eq!(*board.get_plane(), plane);
     }
 }
