@@ -1,15 +1,5 @@
-use super::{
-    node::{Coordinate, Node},
-    ordered_float::OrderedFloat,
-};
+use super::{node::Coordinate, position::Position};
 use std::ops::Index;
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Position {
-    Open(Node),
-    Weighted(Node, OrderedFloat),
-    Walled,
-}
 
 type Plane = Vec<Position>;
 
@@ -48,6 +38,8 @@ impl Board {
 
 #[cfg(test)]
 mod test {
+    use crate::modules::node::Node;
+
     use super::*;
 
     fn get_board() -> Board {

@@ -1,21 +1,11 @@
-use super::board::{Board, Position};
+use super::board::Board;
 use super::node::{Coordinate, Node};
 use super::ordered_float::OrderedFloat;
 use super::path_builder::PathBuilder;
+use super::position::Position;
 use keyed_priority_queue::KeyedPriorityQueue;
 use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
-
-// instead of manually checking the directions, traverse a vector of
-// direction offsets and validate oob with offsets. Haven't found a way
-// to handle usize and isize (the indexing operations can only happen with usize)
-// but offsets need to include negatives so at the very least it has to be isize
-// const STRAIGHT: [(isize, isize); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
-// const DIAGONALS: [(isize, isize); 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
-// const DIRECTIONS: [(isize, isize); 8] = [
-//     (-1, 0), (1, 0), (0, -1), (0, 1),
-//     (-1, -1), (-1, 1), (1, -1), (1, 1)
-// ];
 
 /**
  * Path finder using the A * Search algorithm.
@@ -49,6 +39,16 @@ impl PathFinder {
         }
     }
 
+    // instead of manually checking the directions, traverse a vector of
+    // direction offsets and validate oob with offsets. Haven't found a way
+    // to handle usize and isize (the indexing operations can only happen with usize)
+    // but offsets need to include negatives so at the very least it has to be isize
+    // const STRAIGHT: [(isize, isize); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
+    // const DIAGONALS: [(isize, isize); 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
+    // const DIRECTIONS: [(isize, isize); 8] = [
+    //     (-1, 0), (1, 0), (0, -1), (0, 1),
+    //     (-1, -1), (-1, 1), (1, -1), (1, 1)
+    // ];
     fn get_neighbors(node: Coordinate, board: &Board) -> Vec<DiagonalIdentifiedPosition> {
         let (board_rows, board_columns) = board.get_dimensions();
         let mut neighbors: Vec<DiagonalIdentifiedPosition> = Vec::with_capacity(8);
