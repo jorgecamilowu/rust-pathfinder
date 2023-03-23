@@ -1,8 +1,8 @@
-use super::{node::Node, ordered_float::OrderedFloat};
+use super::node::Node;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Position {
     Open(Node),
-    Weighted(Node, OrderedFloat),
+    Weighted(Node, i32),
     Walled,
 }
